@@ -1,11 +1,13 @@
-import requests
+
+import os
 import json
+import requests
 from flask import Flask, request
 
 app = Flask(__name__)
 
-TELEGRAM_BOT_TOKEN = "<YOUR_TELEGRAM_BOT_TOKEN>"
-OPENROUTER_API_KEY = "<YOUR_GROK_API_KEY>"
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 def send_message(chat_id, text):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -21,6 +23,7 @@ def webhook():
     chat_id = data["message"]["chat"]["id"]
     user_message = data["message"]["text"]
 
+    # GROK 3 (OpenRouter) से जवाब लेना
     response = requests.post(
         url="https://openrouter.ai/api/v1/chat/completions",
         headers={
@@ -33,10 +36,20 @@ def webhook():
         })
     )
 
-    answer = response.json()["choices"][0]["message"]["content"]
-    send_message(chat_id, answer)
+    result = response.json()
+    try:
+        reply = result["choices"][0]["message"]["content"]
+    except Exception as e:
+        reply = "माफ़ कीजिए, कुछ गड़बड़ हो गई है।"
+
+    send_message(chat_id, reply)
     return "ok"
 
 @app.route("/", methods=["GET"])
 def home():
     return "Bot is live!"
+
+# Render के लिए पोर्ट bind करना जरूरी है
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
